@@ -43,6 +43,9 @@ jobs:
           # Restore our custom manifest configuration
           cp /tmp/backup/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
 
+      - name: Configure Android Package Names
+        run: python3 modify_android.py
+
       - name: Install Dependencies
         run: flutter pub get
 

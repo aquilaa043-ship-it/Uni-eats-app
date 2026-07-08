@@ -3,7 +3,6 @@ import re
 
 podfile_path = 'ios/Podfile'
 
-# If Podfile doesn't exist yet, we create a standard template
 if not os.path.exists(podfile_path):
     print("Podfile does not exist. Creating a standard one.")
     standard_podfile = """platform :ios, '13.0'
@@ -48,17 +47,17 @@ else:
     with open(podfile_path, 'r') as f:
         content = f.read()
     
-    # 1. Update platform line to iOS 13.0
-    content = re.sub(r'#?\s*platform\s+:ios,\s*[\'"][^\'"]+[\'"]', "platform :ios, '13.0'", content)
+    # 1. Update platform line to iOS 13.0 (and ensure it is uncommented)
+    if re.search(r'#?\s*platform\s+:ios\s*,\s*[\'"][^\'"]+[\'"]', content):
+        content = re.sub(r'#?\s*platform\s+:ios\s*,\s*[\'"][^\'"]+[\'"]', "platform :ios, '13.0'", content)
+    else:
+        content = "platform :ios, '13.0'\n" + content
     
     # 2. Update post_install configuration to set IPHONEOS_DEPLOYMENT_TARGET to 13.0
-    target_settings = """    flutter_additional_ios_build_settings(target)
-    target.build_configurations.each do |config|
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
-    end"""
-    
-    if "flutter_additional_ios_build_settings(target)" in content and "IPHONEOS_DEPLOYMENT_TARGET" not in content:
-        content = content.replace("    flutter_additional_ios_build_settings(target)", target_settings)
+    if "IPHONEOS_DEPLOYMENT_TARGET" not in content:
+        pattern = r'(\s*)flutter_additional_ios_build_settings\(target\)'
+        replacement = r"\1flutter_additional_ios_build_settings(target)\n\1target.build_configurations.each do |config|\n\1  config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'\n\1end"
+        content = re.sub(pattern, replacement, content)
         
     with open(podfile_path, 'w') as f:
         f.write(content)
