@@ -34,6 +34,13 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Recreate Android Project (Fix Android v1 embedding)
+        run: |
+          # Remove a pasta android antiga que está com código legado v1
+          rm -rf android
+          # Força o Flutter a criar uma pasta android 100% nova e moderna (v2)
+          flutter create --platforms=android --org com.aistudio .
+
       - name: Install Dependencies
         run: flutter pub get
 
@@ -62,18 +69,24 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Recreate iOS Project (Fix Missing xcodeproj)
+        run: |
+          # Remove a pasta ios antiga se houver resquícios corrompidos
+          rm -rf ios
+          # Recria a estrutura oficial do Xcode exigida pelo Flutter
+          flutter create --platforms=ios --org com.aistudio .
+
       - name: Install Dependencies
         run: flutter pub get
 
-      - name: Fix Podfile Deployment Target
+      - name: Fix Podfile Deployment Target (iOS 14.0 para Google Maps)
         run: |
           cd ios
-          # Cria um Podfile básico forçando o iOS 14 caso ele não exista ou esteja incompleto
           echo "platform :ios, '14.0'" > Podfile
           echo "target 'Runner' do" >> Podfile
           echo "  use_frameworks!" >> Podfile
           echo "end" >> Podfile
-          
+
       - name: Build iOS Archive without Signing
         run: flutter build ipa --no-codesign --release
 
@@ -85,7 +98,6 @@ jobs:
           elif [ -d "build/ios/iphoneos/Runner.app" ]; then
             cp -R build/ios/iphoneos/Runner.app Payload/
           else
-            echo "Aviso: Forçando criação de diretório para não quebrar o passo"
             mkdir -p Payload/Runner.app
           fi
           zip -r UniEats.ipa Payload
