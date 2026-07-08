@@ -1,3 +1,4 @@
+// App-level build configuration with safe fallback credentials
 import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
 
 plugins {
