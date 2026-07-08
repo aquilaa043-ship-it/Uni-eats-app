@@ -34,6 +34,15 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Recreate Platform Projects
+        run: |
+          mkdir -p /tmp/backup
+          cp android/app/src/main/AndroidManifest.xml /tmp/backup/AndroidManifest.xml
+          # Recreate all standard build files for Android and iOS
+          flutter create --platforms=android,ios --org com.aistudio .
+          # Restore our custom manifest configuration
+          cp /tmp/backup/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
+
       - name: Install Dependencies
         run: flutter pub get
 
@@ -62,8 +71,20 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Recreate Platform Projects
+        run: |
+          mkdir -p /tmp/backup
+          cp ios/Runner/Info.plist /tmp/backup/Info.plist
+          # Recreate all standard build files for Android and iOS
+          flutter create --platforms=android,ios --org com.aistudio .
+          # Restore our custom Info.plist configuration
+          cp /tmp/backup/Info.plist ios/Runner/Info.plist
+
       - name: Install Dependencies
         run: flutter pub get
+
+      - name: Configure iOS Podfile Target
+        run: python3 modify_podfile.py
 
       - name: Build iOS (Sem assinatura para exportação)
         run: flutter build ios --release --no-codesign
