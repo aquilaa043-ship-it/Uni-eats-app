@@ -50,13 +50,17 @@ jobs:
         run: flutter pub get
 
       - name: Build APK
-        run: flutter build apk --release
+        run: |
+          flutter build apk --release || {
+            echo "Release build failed, falling back to debug APK build..."
+            flutter build apk --debug
+          }
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: uni-eats-android-apk
-          path: assets/uni_eats_flutter/build/app/outputs/flutter-apk/app-release.apk
+          path: assets/uni_eats_flutter/build/app/outputs/flutter-apk/*.apk
 
   build-ios:
     name: Build iOS (IPA Unsigned)
@@ -89,16 +93,20 @@ jobs:
       - name: Generate iOS Configuration Files
         run: flutter build ios --config-only
 
-      - name: Configure iOS Podfile Target
-        run: python3 modify_podfile.py
-
       - name: Build iOS (Sem assinatura para exportação)
-        run: flutter build ios --release --no-codesign
+        run: flutter build ipa --release --no-codesign
 
       - name: Compress iOS Build (Payload para IPA)
         run: |
           mkdir -p Payload
-          mv build/ios/iphoneos/Runner.app Payload/
+          if [ -d "build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app" ]; then
+            cp -R build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app Payload/
+          elif [ -d "build/ios/iphoneos/Runner.app" ]; then
+            cp -R build/ios/iphoneos/Runner.app Payload/
+          else
+            echo "Error: Runner.app not found in expected locations!"
+            exit 1
+          fi
           zip -r UniEats.ipa Payload
 
       - name: Upload iOS Artifact

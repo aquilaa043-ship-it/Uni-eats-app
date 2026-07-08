@@ -32,55 +32,7 @@ android {
         storePassword = System.getenv("STORE_PASSWORD")
         keyAlias = "upload"
         keyPassword = System.getenv("KEY_PASSWORD")
-      } else {
-        // Fallback to debug configuration so assembleRelease doesn't fail
-        val fallbackKeystore = file("${rootDir}/debug.keystore")
-        if (!fallbackKeystore.exists()) {
-          try {
-            ProcessBuilder(
-              "keytool", "-genkey", "-v",
-              "-keystore", fallbackKeystore.absolutePath,
-              "-storepass", "android",
-              "-alias", "androiddebugkey",
-              "-keypass", "android",
-              "-keyalg", "RSA",
-              "-keysize", "2048",
-              "-validity", "10000",
-              "-dname", "CN=Android Debug,O=Android,C=US"
-            ).start().waitFor()
-          } catch (e: Exception) {
-            // Ignore
-          }
-        }
-        storeFile = fallbackKeystore
-        storePassword = "android"
-        keyAlias = "androiddebugkey"
-        keyPassword = "android"
       }
-    }
-    create("debugConfig") {
-      val fallbackKeystore = file("${rootDir}/debug.keystore")
-      if (!fallbackKeystore.exists()) {
-        try {
-          ProcessBuilder(
-            "keytool", "-genkey", "-v",
-            "-keystore", fallbackKeystore.absolutePath,
-            "-storepass", "android",
-            "-alias", "androiddebugkey",
-            "-keypass", "android",
-            "-keyalg", "RSA",
-            "-keysize", "2048",
-            "-validity", "10000",
-            "-dname", "CN=Android Debug,O=Android,C=US"
-          ).start().waitFor()
-        } catch (e: Exception) {
-          // Ignore
-        }
-      }
-      storeFile = fallbackKeystore
-      storePassword = "android"
-      keyAlias = "androiddebugkey"
-      keyPassword = "android"
     }
   }
 
@@ -89,10 +41,17 @@ android {
       isCrunchPngs = false
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfig = signingConfigs.getByName("release")
+      
+      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
+      val keystoreFile = file(keystorePath)
+      if (keystoreFile.exists() && System.getenv("STORE_PASSWORD") != null) {
+        signingConfig = signingConfigs.getByName("release")
+      } else {
+        signingConfig = signingConfigs.getByName("debug")
+      }
     }
     debug {
-      signingConfig = signingConfigs.getByName("debugConfig")
+      signingConfig = signingConfigs.getByName("debug")
     }
   }
   compileOptions {

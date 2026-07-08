@@ -57,7 +57,19 @@ if os.path.exists(pbxproj_path):
         pbx_content
     )
     
-    # Disable code signing requirements for Runner and all other targets
+    # Strip any existing code sign, team, or profile settings so they don't override our settings
+    lines = pbx_content.splitlines()
+    new_lines = []
+    for line in lines:
+        if re.search(r'^\s*(CODE_SIGN_IDENTITY|DEVELOPMENT_TEAM|PROVISIONING_PROFILE_SPECIFIER|PROVISIONING_PROFILE|CODE_SIGNING_REQUIRED|CODE_SIGNING_ALLOWED)\b', line):
+            continue
+        new_lines.append(line)
+    pbx_content = "\n".join(new_lines)
+    
+    # Set ProvisioningStyle to Manual to prevent automatic certificate checks
+    pbx_content = pbx_content.replace('ProvisioningStyle = Automatic;', 'ProvisioningStyle = Manual;')
+    
+    # Inject clean disabled code signing settings under buildSettings = {
     pbx_content = pbx_content.replace(
         'buildSettings = {',
         'buildSettings = {\n\t\t\t\tCODE_SIGNING_ALLOWED = NO;\n\t\t\t\tCODE_SIGNING_REQUIRED = NO;\n\t\t\t\tCODE_SIGN_IDENTITY = "";\n\t\t\t\tDEVELOPMENT_TEAM = "";'
