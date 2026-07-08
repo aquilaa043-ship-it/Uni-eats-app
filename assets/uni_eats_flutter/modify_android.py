@@ -1,41 +1,39 @@
 import os
 import shutil
 
-# 1. Rename the package directory if it exists
-old_dir = 'android/app/src/main/kotlin/com/aistudio/uni_eats'
-new_dir = 'android/app/src/main/kotlin/com/aistudio/unieats'
+print("Starting Android package renaming and clean up...")
 
-if os.path.exists(old_dir):
-    print(f"Renaming {old_dir} to {new_dir}")
-    if os.path.exists(new_dir):
-        shutil.rmtree(new_dir)
-    os.makedirs(os.path.dirname(new_dir), exist_ok=True)
-    shutil.move(old_dir, new_dir)
-else:
-    print(f"Directory {old_dir} not found.")
+# 1. Rename any package directories containing 'uni_eats' to 'unieats'
+# We walk through android/app/src from bottom up to avoid path changes during iteration
+for root, dirs, files in os.walk('android/app/src', topdown=False):
+    for d in dirs:
+        if d == 'uni_eats':
+            old_path = os.path.join(root, d)
+            new_path = os.path.join(root, 'unieats')
+            print(f"Renaming package directory: {old_path} -> {new_path}")
+            if os.path.exists(new_path):
+                shutil.rmtree(new_path)
+            os.rename(old_path, new_path)
 
-# 2. Update package name in MainActivity.kt
-main_activity_path = 'android/app/src/main/kotlin/com/aistudio/unieats/MainActivity.kt'
-if os.path.exists(main_activity_path):
-    print(f"Updating package name in {main_activity_path}")
-    with open(main_activity_path, 'r') as f:
-        content = f.read()
-    content = content.replace('package com.aistudio.uni_eats', 'package com.aistudio.unieats')
-    with open(main_activity_path, 'w') as f:
-        f.write(content)
-else:
-    print(f"MainActivity.kt not found at {main_activity_path}")
+# 2. Recursively replace any reference to 'com.aistudio.uni_eats' with 'com.aistudio.unieats'
+# in all relevant source, config, and build files.
+def replace_package_refs(directory):
+    extensions = ('.gradle', '.kts', '.xml', '.kt', '.java', '.properties')
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            if file.endswith(extensions):
+                file_path = os.path.join(root, file)
+                try:
+                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        content = f.read()
+                    if 'com.aistudio.uni_eats' in content:
+                        print(f"Updating package references in: {file_path}")
+                        content = content.replace('com.aistudio.uni_eats', 'com.aistudio.unieats')
+                        with open(file_path, 'w', encoding='utf-8') as f:
+                            f.write(content)
+                except Exception as e:
+                    print(f"Error updating file {file_path}: {e}")
 
-# 3. Update namespace and applicationId in android/app/build.gradle
-build_gradle_path = 'android/app/build.gradle'
-if os.path.exists(build_gradle_path):
-    print(f"Updating build.gradle: {build_gradle_path}")
-    with open(build_gradle_path, 'r') as f:
-        content = f.read()
-    content = content.replace('com.aistudio.uni_eats', 'com.aistudio.unieats')
-    with open(build_gradle_path, 'w') as f:
-        f.write(content)
-else:
-    print(f"build.gradle not found at {build_gradle_path}")
+replace_package_refs('android')
 
-print("Android modifications done successfully!")
+print("Android configuration completed successfully!")
