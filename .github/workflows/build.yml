@@ -86,6 +86,9 @@ jobs:
       - name: Install Dependencies
         run: flutter pub get
 
+      - name: Generate iOS Configuration Files
+        run: flutter build ios --config-only
+
       - name: Configure iOS Podfile Target
         run: python3 modify_podfile.py
 
