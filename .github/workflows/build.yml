@@ -1,92 +1,118 @@
-yaml
 name: "Build e Exportar Uni Eats Native"
 
 on:
   push:
-      branches:
-            - main
-                  - master
-                    pull_request:
-                        branches:
-                              - main
-                                    - master
-                                      workflow_dispatch: 
-                                      
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
 
-                                      jobs:
-                                        build-android:
-                                            name: Build Android (APK)
-                                                runs-on: ubuntu-latest
-                                                    defaults:
-                                                          run:
-                                                                  working-directory: assets/uni_eats_flutter
-                                                                      steps:
-                                                                            - name: Checkout Repository
-                                                                                    uses: actions/checkout@v4
+jobs:
+  build-android:
+    name: Build Android (APK)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: assets/uni_eats_flutter
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-                                                                                          - name: Set up Java
-                                                                                                  uses: actions/setup-java@v4
-                                                                                                          with:
-                                                                                                                    distribution: 'zulu'
-                                                                                                                              java-version: '17'
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
 
-                                                                                                                                    - name: Grant Execute Permission to Gradle
-                                                                                                                                            run: chmod +x android/gradlew || true
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
 
-                                                                                                                                                  - name: Build Android APK (Release with Debug Fallback)
-                                                                                                                                                          run: |
-                                                                                                                                                                    cd android
-                                                                                                                                                                              ./gradlew assembleRelease || ./gradlew assembleDebug
+      - name: Recreate Platform Projects
+        run: |
+          mkdir -p /tmp/backup
+          cp android/app/src/main/AndroidManifest.xml /tmp/backup/AndroidManifest.xml || true
+          # Recreate all standard build files for Android and iOS
+          flutter create --platforms=android,ios --org com.aistudio .
+          # Restore our custom manifest configuration if we had one
+          cp /tmp/backup/AndroidManifest.xml android/app/src/main/AndroidManifest.xml || true
 
-                                                                                                                                                                                    - name: Upload APK Artifact
-                                                                                                                                                                                            uses: actions/upload-artifact@v4
-                                                                                                                                                                                                    with:
-                                                                                                                                                                                                              name: uni-eats-android-apk
-                                                                                                                                                                                                                        path: |
-                                                                                                                                                                                                                                    assets/uni_eats_flutter/android/app/build/outputs/apk/release/*.apk
-                                                                                                                                                                                                                                                assets/uni_eats_flutter/android/app/build/outputs/apk/debug/*.apk
+      - name: Configure Android Package Names
+        run: python3 modify_android.py || true
 
-                                                                                                                                                                                                                                                  build-ios:
-                                                                                                                                                                                                                                                      name: Build iOS (IPA Unsigned)
-                                                                                                                                                                                                                                                          runs-on: macos-latest
-                                                                                                                                                                                                                                                              defaults:
-                                                                                                                                                                                                                                                                    run:
-                                                                                                                                                                                                                                                                            working-directory: assets/uni_eats_flutter
-                                                                                                                                                                                                                                                                                steps:
-                                                                                                                                                                                                                                                                                      - name: Checkout Repository
-                                                                                                                                                                                                                                                                                              uses: actions/checkout@v4
+      - name: Install Dependencies
+        run: flutter pub get
 
-                                                                                                                                                                                                                                                                                                    - name: Set up Flutter
-                                                                                                                                                                                                                                                                                                            uses: subosito/flutter-action@v2
-                                                                                                                                                                                                                                                                                                                    with:
-                                                                                                                                                                                                                                                                                                                              channel: 'stable'
-                                                                                                                                                                                                                                                                                                                                        cache: true
+      - name: Build APK (Release with Debug Fallback)
+        run: |
+          flutter build apk --release || {
+            echo "Release build failed, falling back to debug APK build..."
+            flutter build apk --debug
+          }
 
-                                                                                                                                                                                                                                                                                                                                              - name: Clean and Prepare Flutter iOS
-                                                                                                                                                                                                                                                                                                                                                      run: |
-                                                                                                                                                                                                                                                                                                                                                                flutter pub get || true
-                                                                                                                                                                                                                                                                                                                                                                          flutter build ios --config-only --no-codesign
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: uni-eats-android-apk
+          path: |
+            assets/uni_eats_flutter/build/app/outputs/flutter-apk/*.apk
 
-                                                                                                                                                                                                                                                                                                                                                                                - name: Build iOS Archive without Signing
-                                                                                                                                                                                                                                                                                                                                                                                        run: |
-                                                                                                                                                                                                                                                                                                                                                                                                  flutter build ipa --no-codesign --release
+  build-ios:
+    name: Build iOS (IPA Unsigned)
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: assets/uni_eats_flutter
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-                                                                                                                                                                                                                                                                                                                                                                                                        - name: Compress iOS Build (Payload para IPA)
-                                                                                                                                                                                                                                                                                                                                                                                                                run: |
-                                                                                                                                                                                                                                                                                                                                                                                                                          mkdir -p Payload
-                                                                                                                                                                                                                                                                                                                                                                                                                                    if [ -d "build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app" ]; then
-                                                                                                                                                                                                                                                                                                                                                                                                                                                cp -R build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app Payload/
-                                                                                                                                                                                                                                                                                                                                                                                                                                                          elif [ -d "build/ios/iphoneos/Runner.app" ]; then
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                      cp -R build/ios/iphoneos/Runner.app Payload/
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                else
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            echo "Aviso: Runner.app estrutural padrão não gerado, tentando empacotamento genérico."
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        mkdir -p Payload/Runner.app
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  fi
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            zip -r UniEats.ipa Payload
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  - name: Upload iOS Artifact
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          uses: actions/upload-artifact@v4
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  with:
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            name: uni-eats-ios-ipa
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      path: assets/uni_eats_flutter/UniEats.ipa
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+      - name: Recreate Platform Projects
+        run: |
+          mkdir -p /tmp/backup
+          cp ios/Runner/Info.plist /tmp/backup/Info.plist || true
+          # Recreate all standard build files for Android and iOS
+          flutter create --platforms=android,ios --org com.aistudio .
+          # Restore our custom Info.plist configuration
+          cp /tmp/backup/Info.plist ios/Runner/Info.plist || true
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Generate iOS Configuration Files
+        run: flutter build ios --config-only --no-codesign
+
+      - name: Build iOS Archive without Signing
+        run: |
+          flutter build ipa --release --no-codesign
+
+      - name: Compress iOS Build (Payload para IPA)
+        run: |
+          mkdir -p Payload
+          if [ -d "build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app" ]; then
+            cp -R build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app Payload/
+          elif [ -d "build/ios/iphoneos/Runner.app" ]; then
+            cp -R build/ios/iphoneos/Runner.app Payload/
+          else
+            echo "Aviso: Runner.app estrutural padrão não gerado, tentando empacotamento genérico."
+            mkdir -p Payload/Runner.app
+          fi
+          zip -r UniEats.ipa Payload
+
+      - name: Upload iOS Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: uni-eats-ios-ipa
+          path: assets/uni_eats_flutter/UniEats.ipa
