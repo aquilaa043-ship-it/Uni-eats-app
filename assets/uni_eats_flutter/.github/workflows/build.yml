@@ -1,0 +1,81 @@
+name: Flutter Build & Export (Android & iOS)
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch: # Permite rodar manualmente pelo painel do GitHub
+
+jobs:
+  build-android:
+    name: Build Android (APK)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: assets/uni_eats_flutter
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: uni-eats-android-apk
+          path: assets/uni_eats_flutter/build/app/outputs/flutter-apk/app-release.apk
+
+  build-ios:
+    name: Build iOS (IPA Unsigned)
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: assets/uni_eats_flutter
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Build iOS (Sem assinatura para exportação)
+        run: flutter build ios --release --no-codesign
+
+      - name: Compress iOS Build (Payload para IPA)
+        run: |
+          mkdir -p Payload
+          mv build/ios/iphoneos/Runner.app Payload/
+          zip -r UniEats.ipa Payload
+
+      - name: Upload iOS Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: uni-eats-ios-ipa
+          path: assets/uni_eats_flutter/UniEats.ipa

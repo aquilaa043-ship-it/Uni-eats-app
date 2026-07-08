@@ -1,0 +1,46 @@
+name: uni_eats
+description: "Uni Eats - Sistema de Delivery SaaS Regionalizado com Split de Pagamentos"
+publish_to: 'none' # Impede a publicação acidental no pub.dev
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Biblioteca de Ícones Adicionais do Cupertino (Padrão iOS)
+  cupertino_icons: ^1.0.5
+
+  # Serviços Essenciais do Firebase Core e Auth
+  firebase_core: ^2.15.0
+  firebase_auth: ^4.7.0
+
+  # Banco de Dados NoSQL Reativo em Tempo Real
+  cloud_firestore: ^4.8.0
+
+  # Comunicação HTTP e Integração de APIs de Gateway (ex: Mercado Pago)
+  http: ^1.1.0
+
+  # Integração e Renderização de Mapas e Rotas GPS no Aplicativo
+  google_maps_flutter: ^2.4.0
+
+  # Gerenciamento de Estado Reativo Simples e Fluido
+  provider: ^6.0.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # Linter para garantir as boas práticas de desenvolvimento recomendadas pelo time de engenharia
+  flutter_lints: ^2.0.1
+
+flutter:
+  uses-material-design: true
+
+  # Configuração de ativos globais, imagens e fontes premium
+  assets:
+    - assets/images/
+    - assets/icons/
