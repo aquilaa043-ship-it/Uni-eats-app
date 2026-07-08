@@ -56,10 +56,10 @@ end
 else:
     print("Podfile not found! This is unexpected because flutter create should generate it.")
 
-# 3. Update IPHONEOS_DEPLOYMENT_TARGET in Runner.xcodeproj/project.pbxproj
+# 3. Update IPHONEOS_DEPLOYMENT_TARGET and signing settings in Runner.xcodeproj/project.pbxproj
 pbxproj_path = 'ios/Runner.xcodeproj/project.pbxproj'
 if os.path.exists(pbxproj_path):
-    print("Modifying project.pbxproj deployment targets...")
+    print("Modifying project.pbxproj deployment targets and signing settings...")
     with open(pbxproj_path, 'r', encoding='utf-8', errors='ignore') as f:
         pbx_content = f.read()
     
@@ -68,6 +68,13 @@ if os.path.exists(pbxproj_path):
         r'IPHONEOS_DEPLOYMENT_TARGET\s*=\s*[0-9.]+;',
         'IPHONEOS_DEPLOYMENT_TARGET = 13.0;',
         pbx_content
+    )
+    
+    # Disable code signing requirements for release and debug builds
+    # We find 'buildSettings = {' and inject our signing flags
+    pbx_content = pbx_content.replace(
+        'buildSettings = {',
+        'buildSettings = {\n\t\t\t\tCODE_SIGNING_ALLOWED = NO;\n\t\t\t\tCODE_SIGNING_REQUIRED = NO;\n\t\t\t\tCODE_SIGN_IDENTITY = "";'
     )
     
     with open(pbxproj_path, 'w', encoding='utf-8') as f:
