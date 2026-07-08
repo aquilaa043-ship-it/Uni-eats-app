@@ -540,7 +540,7 @@ class CheckoutSimuladoModule extends StatelessWidget {
                                 Text(
                                   "Split R\$ 4,00\n(R\$ 2 cliente / R\$ 2 loja)",
                                   style: TextStyle(color: brandTextLight.withOpacity(0.4), fontSize: 8),
-                                  textAlign: TextAlign.Center,
+                                  textAlign: TextAlign.center,
                                 ),
                               ],
                             ),
@@ -575,7 +575,7 @@ class CheckoutSimuladoModule extends StatelessWidget {
                                 Text(
                                   "Split R\$ 6,00\n(R\$ 3 cliente / R\$ 3 loja)",
                                   style: TextStyle(color: brandTextLight.withOpacity(0.4), fontSize: 8),
-                                  textAlign: TextAlign.Center,
+                                  textAlign: TextAlign.center,
                                 ),
                               ],
                             ),
@@ -1110,7 +1110,7 @@ class _MotoboyDeliveryModuleState extends State<MotoboyDeliveryModule> with Sing
                     const SizedBox(height: 20),
                     Text(
                       "R\$ ${ganhosTotais.toStringAsFixed(2)}",
-                      style: const TextStyle(color: brandTextLight, fontWeight: FontWeight.black, fontSize: 32, letterSpacing: -0.5),
+                      style: const TextStyle(color: brandTextLight, fontWeight: FontWeight.w900, fontSize: 32, letterSpacing: -0.5),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 2),
@@ -3065,7 +3065,7 @@ class CarteiraMotoboyModule extends StatelessWidget {
                                 ),
                               ),
                               Container(
-                                padding: const EdgeInsets.horizontal(8, 4),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
                                   color: Colors.green.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(6),

@@ -81,7 +81,7 @@ class AppTheme {
       ),
 
       // Customização de Elevação de Cartões
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: surface,
         elevation: 4,
         shape: RoundedRectangleBorder(

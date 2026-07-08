@@ -1,6 +1,6 @@
 {
   "name": "Uni eats",
-  "description": "Plataforma de delivery premium e marketplace gourmet Uni eats.",
+  "description": "Plataforma de delivery premium e marketplace gourmet Uni Eats (Native).",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
