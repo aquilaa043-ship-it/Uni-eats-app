@@ -34,15 +34,12 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Recreate Android Project (Fix Android v1 embedding)
+      - name: Clean and Recreate Android Project
         run: |
-          # Remove a pasta android antiga que está com código legado v1
           rm -rf android
-          # Força o Flutter a criar uma pasta android 100% nova e moderna (v2)
           flutter create --platforms=android --org com.aistudio .
-
-      - name: Install Dependencies
-        run: flutter pub get
+          flutter pub get
+          flutter clean
 
       - name: Build Android via Flutter CLI (Debug)
         run: flutter build apk --debug
@@ -69,38 +66,37 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Recreate iOS Project (Fix Missing xcodeproj)
+      - name: Recreate iOS Project
         run: |
-          # Remove a pasta ios antiga se houver resquícios corrompidos
           rm -rf ios
-          # Recria a estrutura oficial do Xcode exigida pelo Flutter
           flutter create --platforms=ios --org com.aistudio .
+          flutter pub get
 
-      - name: Install Dependencies
-        run: flutter pub get
-
-      - name: Fix Podfile Deployment Target (iOS 14.0 para Google Maps)
+      - name: Configure CocoaPods and Podfile
         run: |
           cd ios
           echo "platform :ios, '14.0'" > Podfile
           echo "target 'Runner' do" >> Podfile
           echo "  use_frameworks!" >> Podfile
           echo "end" >> Podfile
+          pod repo update
+          pod install
 
-      - name: Build iOS Archive without Signing
-        run: flutter build ipa --no-codesign --release
+      - name: Build iOS App Bundle (Forçando Ignorar Assinatura no CLI)
+        run: |
+          # Usamos o build ios em vez de ipa para o Xcode não exigir o Development Team na nuvem
+          flutter build ios --release --no-codesign
 
-      - name: Compress iOS Build (Payload para IPA)
+      - name: Compress iOS Build (Empacotando .app em .ipa Manualmente)
         run: |
           mkdir -p Payload
-          if [ -d "build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app" ]; then
-            cp -R build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app Payload/
-          elif [ -d "build/ios/iphoneos/Runner.app" ]; then
+          if [ -d "build/ios/iphoneos/Runner.app" ]; then
             cp -R build/ios/iphoneos/Runner.app Payload/
+            zip -r UniEats.ipa Payload
           else
-            mkdir -p Payload/Runner.app
+            echo "Erro crítico: O Flutter não gerou o Runner.app no caminho esperado."
+            exit 1
           fi
-          zip -r UniEats.ipa Payload
 
       - name: Upload iOS Artifact
         uses: actions/upload-artifact@v4
