@@ -34,14 +34,50 @@ android {
         keyPassword = System.getenv("KEY_PASSWORD")
       } else {
         // Fallback to debug configuration so assembleRelease doesn't fail
-        storeFile = file("${rootDir}/debug.keystore")
+        val fallbackKeystore = file("${rootDir}/debug.keystore")
+        if (!fallbackKeystore.exists()) {
+          try {
+            ProcessBuilder(
+              "keytool", "-genkey", "-v",
+              "-keystore", fallbackKeystore.absolutePath,
+              "-storepass", "android",
+              "-alias", "androiddebugkey",
+              "-keypass", "android",
+              "-keyalg", "RSA",
+              "-keysize", "2048",
+              "-validity", "10000",
+              "-dname", "CN=Android Debug,O=Android,C=US"
+            ).start().waitFor()
+          } catch (e: Exception) {
+            // Ignore
+          }
+        }
+        storeFile = fallbackKeystore
         storePassword = "android"
         keyAlias = "androiddebugkey"
         keyPassword = "android"
       }
     }
     create("debugConfig") {
-      storeFile = file("${rootDir}/debug.keystore")
+      val fallbackKeystore = file("${rootDir}/debug.keystore")
+      if (!fallbackKeystore.exists()) {
+        try {
+          ProcessBuilder(
+            "keytool", "-genkey", "-v",
+            "-keystore", fallbackKeystore.absolutePath,
+            "-storepass", "android",
+            "-alias", "androiddebugkey",
+            "-keypass", "android",
+            "-keyalg", "RSA",
+            "-keysize", "2048",
+            "-validity", "10000",
+            "-dname", "CN=Android Debug,O=Android,C=US"
+          ).start().waitFor()
+        } catch (e: Exception) {
+          // Ignore
+        }
+      }
+      storeFile = fallbackKeystore
       storePassword = "android"
       keyAlias = "androiddebugkey"
       keyPassword = "android"

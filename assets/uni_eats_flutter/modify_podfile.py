@@ -9,47 +9,34 @@ if os.path.exists(podfile_path):
         content = f.read()
 
     # 1. Update platform line to iOS 13.0 (or uncomment and update if it's commented out)
-    # Match pattern like # platform :ios, '12.0' or platform :ios, '11.0'
     platform_pattern = r'#?\s*platform\s+:ios\s*,\s*[\'"][^\'"]+[\'"]'
     if re.search(platform_pattern, content):
         content = re.sub(platform_pattern, "platform :ios, '13.0'", content)
     else:
-        # If no platform line found, prepend it
         content = "platform :ios, '13.0'\n" + content
 
-    # 2. Modify post_install do |installer| block to explicitly set IPHONEOS_DEPLOYMENT_TARGET to 13.0 for all configurations of all targets.
+    # 2. Replace or inject custom comprehensive post_install block to disable code signing
+    # and set deployment target for all CocoaPods dependencies.
     if 'post_install do |installer|' in content:
-        if "IPHONEOS_DEPLOYMENT_TARGET" not in content:
-            # We match the indentation and inject the config override.
-            content = re.sub(
-                r'(\s*)flutter_additional_ios_build_settings\(target\)',
-                r"\1flutter_additional_ios_build_settings(target)\n\1target.build_configurations.each do |config|\n\1  config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'\n\1end",
-                content
-            )
-        else:
-            # If it is already there, make sure any other numbers like '11.0', '12.0' are updated to '13.0'
-            content = re.sub(
-                r"config\.build_settings\['IPHONEOS_DEPLOYMENT_TARGET'\]\s*=\s*['\"][0-9.]+['\"]",
-                "config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'",
-                content
-            )
-            content = re.sub(
-                r'config\.build_settings\["IPHONEOS_DEPLOYMENT_TARGET"\]\s*=\s*[\'"][0-9.]+[\'"]',
-                "config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'",
-                content
-            )
-    else:
-        # If there's no post_install block, append one
-        content += """
+        # Find where 'post_install do |installer|' starts and truncate everything after it to replace it cleanly
+        idx = content.find('post_install do |installer|')
+        content = content[:idx]
+
+    content += """
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
+      config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+      config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
+      config.build_settings['CODE_SIGN_IDENTITY'] = ''
+      config.build_settings['DEVELOPMENT_TEAM'] = ''
     end
   end
 end
 """
+
     with open(podfile_path, 'w', encoding='utf-8') as f:
         f.write(content)
     print("Podfile modified successfully!")
@@ -70,14 +57,14 @@ if os.path.exists(pbxproj_path):
         pbx_content
     )
     
-    # Disable code signing requirements for release and debug builds
-    # We find 'buildSettings = {' and inject our signing flags
+    # Disable code signing requirements for Runner and all other targets
     pbx_content = pbx_content.replace(
         'buildSettings = {',
-        'buildSettings = {\n\t\t\t\tCODE_SIGNING_ALLOWED = NO;\n\t\t\t\tCODE_SIGNING_REQUIRED = NO;\n\t\t\t\tCODE_SIGN_IDENTITY = "";'
+        'buildSettings = {\n\t\t\t\tCODE_SIGNING_ALLOWED = NO;\n\t\t\t\tCODE_SIGNING_REQUIRED = NO;\n\t\t\t\tCODE_SIGN_IDENTITY = "";\n\t\t\t\tDEVELOPMENT_TEAM = "";'
     )
     
     with open(pbxproj_path, 'w', encoding='utf-8') as f:
         f.write(pbx_content)
     print("project.pbxproj updated successfully!")
+
 
