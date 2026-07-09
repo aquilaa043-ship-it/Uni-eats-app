@@ -37,9 +37,14 @@ jobs:
       - name: Repair and Recreate Android Project
         run: |
           rm -rf android build .gradle
-          # Cria e repara a estrutura de forma global para evitar incompatibilidade do Gradle
           flutter create .
           flutter pub get
+
+      - name: Force Android SDK 34 via local.properties
+        run: |
+          # Garante o SDK 34 injetando diretamente no arquivo de propriedades que o Gradle lê
+          echo "flutter.compileSdkVersion=34" >> android/local.properties
+          echo "flutter.targetSdkVersion=34" >> android/local.properties
 
       - name: Build Android via Flutter CLI (Debug Mode)
         run: |
@@ -70,20 +75,25 @@ jobs:
       - name: Recreate iOS Project Structure Clean
         run: |
           rm -rf ios build
-          # O comando 'flutter create .' sem flags reconstrói o Runner.xcodeproj que estava faltando
           flutter create .
           flutter pub get
 
-      - name: Configure CocoaPods with Frameworks
+      - name: Configure CocoaPods with Native Linkage
         run: |
           cd ios
-          # Criamos o Podfile apontando para a estrutura gerada pelo Flutter
-          echo "platform :ios, '14.0'" > Podfile
-          echo "use_frameworks!" >> Podfile
-          echo "target 'Runner' do" >> Podfile
-          echo "  # Pods do Flutter" >> Podfile
-          echo "end" >> Podfile
+          # 1. Força o Flutter a gerar o Podfile oficial e completo com todos os plugins estruturados
+          flutter build ios --config-only
           
+          # 2. Injeta cirurgicamente as dependências dinâmicas no topo do Podfile nativo sem corrompê-lo
+          ruby -e '
+            content = File.read("Podfile")
+            unless content.include?("use_frameworks!")
+              content.gsub!("target \"Runner\" do", "platform :ios, \"14.0\"\nuse_frameworks! :linkage => :static\ntarget \"Runner\" do")
+              File.open("Podfile", "w") { |f| f.write(content) }
+            end
+          '
+          
+          # 3. Instalação limpa dos pods linkando o Firebase
           pod repo update
           pod install
 
