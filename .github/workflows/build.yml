@@ -40,10 +40,11 @@ jobs:
           flutter create .
           flutter pub get
 
-      - name: Force Compile SDK 34 across ALL subprojects
+      - name: Inject Scriptor Core repositories & SDK 34 into Gradle
         run: |
           cd android
-          echo -e "\nsubprojects {\n    afterEvaluate { project ->\n        if (project.hasProperty('android')) {\n            project.android {\n                compileSdkVersion 34\n            }\n        }\n    }\n}" >> build.gradle
+          # Força todos os subprojetos (plugins) a usarem os repositórios da Google/Maven e o SDK 34
+          echo -e "\nallprojects {\n    repositories {\n        google()\n        mavenCentral()\n    }\n}\n\nsubprojects {\n    afterEvaluate { project ->\n        if (project.hasProperty('android')) {\n            project.android {\n                compileSdkVersion 34\n            }\n        }\n    }\n}" >> build.gradle
           cd ..
 
       - name: Build Android via Flutter CLI (Debug Mode)
@@ -78,31 +79,22 @@ jobs:
           flutter create .
           flutter pub get
 
-      - name: Configure CocoaPods with Static Linkage
+      - name: Configure CocoaPods via Flutter CLI
         run: |
           cd ios
-          # 1. Gera EXCLUSIVAMENTE os arquivos de configuração para ambiente de SIMULADOR (Evita checar certificados da Apple)
+          # 1. Deixa o Flutter criar o Podfile original estável
           flutter build ios --config-only --simulator
           
-          # 2. Injeta cirurgicamente as regras do Firebase no Podfile usando aspas simples nativas compatíveis com o bash do macOS
-          ruby -e '
-            if File.exist?("Podfile")
-              content = File.read("Podfile")
-              unless content.include?("use_frameworks!")
-                content.gsub!("target \"Runner\" do", "platform :ios, \"14.0\"\nuse_frameworks! :linkage => :static\ntarget \"Runner\" do")
-                File.open("Podfile", "w") { |f| f.write(content) }
-              end
-            end
-          '
+          # 2. Injeta as dependências estáticas do Firebase na primeira linha sem quebrar o arquivo
+          echo -e "platform :ios, '14.0'\nuse_frameworks! :linkage => :static\n\n$(cat Podfile)" > Podfile
           
-          # 3. Atualiza os mapeamentos locais dos Pods
+          # 3. Limpeza profunda e instalação
           rm -rf Pods Podfile.lock
           pod repo update
           pod install
 
       - name: Build iOS for Simulator
         run: |
-          # Força a compilação explícita em modo Debug voltada ao simulador x86_64/arm64
           flutter build ios --simulator --debug
 
       - name: Compress iOS Build (Payload para Simulator)
