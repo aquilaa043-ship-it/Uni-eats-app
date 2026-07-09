@@ -40,16 +40,16 @@ jobs:
           flutter create .
           flutter pub get
 
-      - name: Fix Android Repositories and SDK 34 (Universal Gradle)
+      - name: Absolute Fix for Android Repositories and SDK 34
         run: |
           cd android
           
-          # 1. Ajusta o settings.gradle usando a string universal que o Gradle aceita sem quebrar propriedades
-          echo -e "pluginManagement {\n    repositories {\n        google()\n        mavenCentral()\n        gradlePluginPortal()\n    }\n}\ndependencyResolutionManagement {\n    repositoriesMode.set(org.gradle.api.initialization.resolve.RepositoriesMode.PRESERVE_EXISTING)\n    repositories {\n        google()\n        mavenCentral()\n    }\n}\n$(cat settings.gradle)" > settings.gradle
+          # 1. Abre o settings.gradle e injeta google() e mavenCentral() no INÍCIO de cada bloco de repositórios nativo.
+          # Isso impede o erro de 'Could not find androidx.lifecycle' ou qualquer dependência sumida do Firebase.
+          perl -i -pe "s/repositories \x7b/repositories \x7b\n        google()\n        mavenCentral()/g" settings.gradle
           
-          # 2. Força a compilação de todos os subprojetos (plugins) com o SDK 34
+          # 2. Força de forma absoluta todos os subprojetos e plugins a compilarem com o SDK 34 no build.gradle
           echo -e "\nsubprojects {\n    afterEvaluate { project ->\n        if (project.hasProperty('android')) {\n            project.android {\n                compileSdkVersion 34\n            }\n        }\n    }\n}" >> build.gradle
-          
           cd ..
 
       - name: Build Android via Flutter CLI (Debug Mode)
@@ -84,17 +84,26 @@ jobs:
           flutter create .
           flutter pub get
 
-      - name: Configure CocoaPods Target and Frameworks
+      - name: Force iOS 14.0 Deployment Target Globally
         run: |
           cd ios
-          # 1. Deixa o Flutter criar o Podfile padrão estruturado
+          # Altera nativamente o Deployment Target interno do projeto Xcode de 13.0 para 14.0 (Resolve Google Maps)
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 13.0;/IPHONEOS_DEPLOYMENT_TARGET = 14.0;/g' Runner.xcodeproj/project.pbxproj
+          
+          if [ -f "Flutter/AppFrameworkInfo.plist" ]; then
+            sed -i '' 's/<string>13.0<\/string>/<string>14.0<\/string>/g' Flutter/AppFrameworkInfo.plist
+          fi
+          cd ..
+
+      - name: Configure CocoaPods with Static Linkage
+        run: |
+          cd ios
+          # Gera o Podfile oficial baseado no projeto que agora já é nativamente iOS 14.0
           flutter build ios --config-only --simulator
           
-          # 2. Em vez de usar sed ou ruby complexos, reescrevemos o Podfile injetando as duas regras no topo de forma nativa e limpa
-          # Isso força o iOS 14.0 e ativa o use_frameworks de uma só vez na leitura do CocoaPods
-          echo -e "platform :ios, '14.0'\nuse_frameworks! :linkage => :static\n\n$(cat Podfile)" > Podfile
+          # Injeta o use_frameworks! necessário para o Firebase/Firestore funcionar estaticamente
+          echo -e "use_frameworks! :linkage => :static\n$(cat Podfile)" > Podfile
           
-          # 3. Limpeza e instalação forçando o mapeamento correto do ecossistema Apple
           rm -rf Pods Podfile.lock
           pod repo update
           pod install
