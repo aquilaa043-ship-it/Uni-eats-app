@@ -40,11 +40,11 @@ jobs:
           flutter create .
           flutter pub get
 
-      - name: Force Android SDK 34 via local.properties
+      - name: Force Compile SDK 34 across ALL subprojects
         run: |
-          # Garante o SDK 34 injetando diretamente no arquivo de propriedades que o Gradle lê
-          echo "flutter.compileSdkVersion=34" >> android/local.properties
-          echo "flutter.targetSdkVersion=34" >> android/local.properties
+          cd android
+          echo -e "\nsubprojects {\n    afterEvaluate { project ->\n        if (project.hasProperty('android')) {\n            project.android {\n                compileSdkVersion 34\n            }\n        }\n    }\n}" >> build.gradle
+          cd ..
 
       - name: Build Android via Flutter CLI (Debug Mode)
         run: |
@@ -78,27 +78,31 @@ jobs:
           flutter create .
           flutter pub get
 
-      - name: Configure CocoaPods with Native Linkage
+      - name: Configure CocoaPods with Static Linkage
         run: |
           cd ios
-          # 1. Força o Flutter a gerar o Podfile oficial e completo com todos os plugins estruturados
-          flutter build ios --config-only
+          # 1. Gera EXCLUSIVAMENTE os arquivos de configuração para ambiente de SIMULADOR (Evita checar certificados da Apple)
+          flutter build ios --config-only --simulator
           
-          # 2. Injeta cirurgicamente as dependências dinâmicas no topo do Podfile nativo sem corrompê-lo
+          # 2. Injeta cirurgicamente as regras do Firebase no Podfile usando aspas simples nativas compatíveis com o bash do macOS
           ruby -e '
-            content = File.read("Podfile")
-            unless content.include?("use_frameworks!")
-              content.gsub!("target \"Runner\" do", "platform :ios, \"14.0\"\nuse_frameworks! :linkage => :static\ntarget \"Runner\" do")
-              File.open("Podfile", "w") { |f| f.write(content) }
+            if File.exist?("Podfile")
+              content = File.read("Podfile")
+              unless content.include?("use_frameworks!")
+                content.gsub!("target \"Runner\" do", "platform :ios, \"14.0\"\nuse_frameworks! :linkage => :static\ntarget \"Runner\" do")
+                File.open("Podfile", "w") { |f| f.write(content) }
+              end
             end
           '
           
-          # 3. Instalação limpa dos pods linkando o Firebase
+          # 3. Atualiza os mapeamentos locais dos Pods
+          rm -rf Pods Podfile.lock
           pod repo update
           pod install
 
       - name: Build iOS for Simulator
         run: |
+          # Força a compilação explícita em modo Debug voltada ao simulador x86_64/arm64
           flutter build ios --simulator --debug
 
       - name: Compress iOS Build (Payload para Simulator)
