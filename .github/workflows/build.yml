@@ -34,17 +34,16 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Clean and Recreate Android Project with SDK 34
+      - name: Clean and Recreate Android Project
         run: |
           rm -rf android
           flutter create --platforms=android --org com.aistudio .
-          # Correção do caminho do build.gradle:
-          sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' android/app/build.gradle
           flutter pub get
           flutter clean
 
-      - name: Build Android via Flutter CLI (Debug)
-        run: flutter build apk --debug
+      - name: Build Android via Flutter CLI (Debug Mode)
+        run: |
+          flutter build apk --debug
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
@@ -68,24 +67,27 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Recreate iOS Project
-        run: |
-          rm -rf ios
-          flutter create --platforms=ios --org com.aistudio .
-          flutter pub get
+      - name: Install Dependencies
+        run: flutter pub get
 
       - name: Configure CocoaPods and Podfile
         run: |
           cd ios
+          # Configura de forma limpa o Podfile com as exigências dos plugins nativos
           echo "platform :ios, '14.0'" > Podfile
           echo "target 'Runner' do" >> Podfile
           echo "  use_frameworks!" >> Podfile
           echo "end" >> Podfile
+          
+          # Limpeza profunda de caches antigos para forçar o Xcode a linkar o Firebase
+          rm -rf Pods TargetSupportFiles Podfile.lock
+          pod cache clean --all
           pod repo update
-          pod install
+          pod install --repo-update
 
-      - name: Build iOS for Simulator (Bypassa totalmente o Development Team)
+      - name: Build iOS for Simulator
         run: |
+          # Compilação em modo simulador para saltar as travas do Development Team da Apple
           flutter build ios --simulator --debug
 
       - name: Compress iOS Build (Payload para Simulator)
