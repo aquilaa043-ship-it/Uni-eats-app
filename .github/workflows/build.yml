@@ -34,19 +34,12 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Clean and Recreate Android Project
+      - name: Repair and Recreate Android Project
         run: |
-          rm -rf android
-          flutter create --platforms=android --org com.aistudio .
+          rm -rf android build .gradle
+          # Cria e repara a estrutura de forma global para evitar incompatibilidade do Gradle
+          flutter create .
           flutter pub get
-          flutter clean
-
-      - name: Force Android SDK 34 for Firebase
-        run: |
-          cd android/app
-          cat build.gradle | sed 's/compileSdk = .*/compileSdk = 34/g' | sed 's/compileSdkVersion .*/compileSdkVersion 34/g' > build.gradle.tmp
-          mv build.gradle.tmp build.gradle
-          cd ../..
 
       - name: Build Android via Flutter CLI (Debug Mode)
         run: |
@@ -74,23 +67,25 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Install Dependencies
-        run: flutter pub get
+      - name: Recreate iOS Project Structure Clean
+        run: |
+          rm -rf ios build
+          # O comando 'flutter create .' sem flags reconstrói o Runner.xcodeproj que estava faltando
+          flutter create .
+          flutter pub get
 
-      - name: Configure CocoaPods and Inject Frameworks
+      - name: Configure CocoaPods with Frameworks
         run: |
           cd ios
-          # 1. Deixamos o Flutter gerar o Podfile oficial completo com todos os mapeamentos de plugins
-          flutter build ios --config-only
+          # Criamos o Podfile apontando para a estrutura gerada pelo Flutter
+          echo "platform :ios, '14.0'" > Podfile
+          echo "use_frameworks!" >> Podfile
+          echo "target 'Runner' do" >> Podfile
+          echo "  # Pods do Flutter" >> Podfile
+          echo "end" >> Podfile
           
-          # 2. Injetamos cirurgicamente o 'use_frameworks!' e a plataforma 14 no topo do Podfile gerado
-          sed -i '' "1s/^/platform :ios, '14.0'\nuse_frameworks!\n/" Podfile
-          
-          # 3. Limpeza profunda dos caches locais do CocoaPods
-          rm -rf Pods TargetSupportFiles Podfile.lock
-          pod cache clean --all
           pod repo update
-          pod install --repo-update
+          pod install
 
       - name: Build iOS for Simulator
         run: |
