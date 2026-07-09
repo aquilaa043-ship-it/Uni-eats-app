@@ -40,16 +40,82 @@ jobs:
           flutter create .
           flutter pub get
 
-      - name: Absolute Fix for Android Repositories and SDK 34
+      - name: Force Monolithic Gradle Repositories & SDK 34
         run: |
           cd android
           
-          # 1. Abre o settings.gradle e injeta google() e mavenCentral() no INÍCIO de cada bloco de repositórios nativo.
-          # Isso impede o erro de 'Could not find androidx.lifecycle' ou qualquer dependência sumida do Firebase.
-          perl -i -pe "s/repositories \x7b/repositories \x7b\n        google()\n        mavenCentral()/g" settings.gradle
+          # 1. Sobrescreve o build.gradle raiz forçando o Google e MavenCentral em nível global
+          # Isso destrói o comportamento de escopo fechado que causou o erro 'Could not find androidx.lifecycle'
+          cat << 'EOF' > build.gradle
+          buildscript {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+              dependencies {
+                  // Gerenciado dinamicamente pelo Flutter Plugin Loader
+              }
+          }
+
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+
+          subprojects {
+              afterEvaluate { project ->
+                  if (project.hasProperty('android')) {
+                      project.android {
+                          compileSdkVersion 34
+                      }
+                  }
+              }
+          }
+
+          rootProject.buildDir = "../build"
+          subprojects {
+              project.buildDir = "${rootProject.buildDir}/${project.name}"
+          }
+          subprojects {
+              project.evaluationDependsOn(":app")
+          }
+
+          tasks.register("clean", Delete) {
+              delete rootProject.buildDir
+          }
+          EOF
           
-          # 2. Força de forma absoluta todos os subprojetos e plugins a compilarem com o SDK 34 no build.gradle
-          echo -e "\nsubprojects {\n    afterEvaluate { project ->\n        if (project.hasProperty('android')) {\n            project.android {\n                compileSdkVersion 34\n            }\n        }\n    }\n}" >> build.gradle
+          # 2. Mantém o settings.gradle no padrão oficial estrito para carregar o motor do Flutter
+          cat << 'EOF' > settings.gradle
+          pluginManagement {
+              def flutterSdkPath = {
+                  def properties = new Properties()
+                  def propertiesFile = new File(settingsDir, "local.properties")
+                  if (propertiesFile.exists()) {
+                      propertiesFile.withReader("UTF-8") { reader -> properties.load(reader) }
+                  }
+                  def sdkPath = properties.getProperty("flutter.sdk")
+                  assert sdkPath != null, "Flutter SDK not found in local.properties"
+                  return sdkPath
+              }()
+
+              includeBuild("${flutterSdkPath}/packages/flutter_tools/gradle")
+
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+
+          plugins {
+              id "dev.flutter.flutter-plugin-loader" version "1.0.0"
+          }
+
+          include ":app"
+          EOF
           cd ..
 
       - name: Build Android via Flutter CLI (Debug Mode)
@@ -87,7 +153,7 @@ jobs:
       - name: Force iOS 14.0 Deployment Target Globally
         run: |
           cd ios
-          # Altera nativamente o Deployment Target interno do projeto Xcode de 13.0 para 14.0 (Resolve Google Maps)
+          # Resolve o erro do Google Maps alterando o projeto Xcode base para target mínimo 14.0
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 13.0;/IPHONEOS_DEPLOYMENT_TARGET = 14.0;/g' Runner.xcodeproj/project.pbxproj
           
           if [ -f "Flutter/AppFrameworkInfo.plist" ]; then
@@ -95,14 +161,52 @@ jobs:
           fi
           cd ..
 
-      - name: Configure CocoaPods with Static Linkage
+      - name: Configure CocoaPods with Post-Install Patch
         run: |
           cd ios
-          # Gera o Podfile oficial baseado no projeto que agora já é nativamente iOS 14.0
           flutter build ios --config-only --simulator
           
-          # Injeta o use_frameworks! necessário para o Firebase/Firestore funcionar estaticamente
-          echo -e "use_frameworks! :linkage => :static\n$(cat Podfile)" > Podfile
+          # Sobrescreve o Podfile aplicando o patch pós-instalação para remover os símbolos de depuração inválidos (-G)
+          cat << 'EOF' > Podfile
+          platform :ios, '14.0'
+          use_frameworks! :linkage => :static
+
+          target 'Runner' do
+            use_frameworks!
+            use_modular_headers!
+            
+            def flutter_root
+              generated_xcode_build_settings_path = File.expand_path('Flutter/generated_xcode_build_settings.mgmt', __dir__)
+              unless File.exist?(generated_xcode_build_settings_path)
+                raise "generated_xcode_build_settings.mgmt não encontrado."
+              end
+              File.foreach(generated_xcode_build_settings_path) do |line|
+                matches = line.match(/FLUTTER_ROOT=(.+)/)
+                return matches[1] if matches
+              end
+            end
+
+            flutter_ios_podfile_setup_path = File.expand_path('packages/flutter_tools/bin/podhelper.rb', flutter_root)
+            unless File.exist?(flutter_ios_podfile_setup_path)
+              raise "podhelper.rb não encontrado em #{flutter_ios_podfile_setup_path}"
+            end
+            require flutter_ios_podfile_setup_path
+            flutter_install_all_ios_pods File.dirname(__file__)
+          end
+
+          post_install do |installer|
+            installer.pods_project.targets.each do |target|
+              flutter_additional_ios_build_settings(target) if respond_to?(:flutter_additional_ios_build_settings)
+              
+              target.build_configurations.each do |config|
+                # Força iOS 14 em todos os submódulos de terceiros do Podfile
+                config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+                # Remove a geração de símbolos de debug obsoleta que injeta a flag proibida '-G'
+                config.build_settings['GCC_GENERATE_DEBUGGING_SYMBOLS'] = 'NO'
+              end
+            end
+          end
+          EOF
           
           rm -rf Pods Podfile.lock
           pod repo update
