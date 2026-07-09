@@ -41,10 +41,16 @@ jobs:
           flutter pub get
           flutter clean
 
-      - name: Build Android via Flutter CLI (Forçando SDK 34)
+      - name: Force Android SDK 34 for Firebase
         run: |
-          # Passamos a propriedade do SDK direto no comando de compilação
-          flutter build apk --debug --gradle-argv=-Pandroid.compileSdkVersion=34
+          cd android/app
+          cat build.gradle | sed 's/compileSdk = .*/compileSdk = 34/g' | sed 's/compileSdkVersion .*/compileSdkVersion 34/g' > build.gradle.tmp
+          mv build.gradle.tmp build.gradle
+          cd ../..
+
+      - name: Build Android via Flutter CLI (Debug Mode)
+        run: |
+          flutter build apk --debug
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
@@ -68,22 +74,20 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Recreate iOS Project Structure
-        run: |
-          rm -rf ios
-          flutter create --platforms=ios --org com.aistudio .
-          flutter pub get
+      - name: Install Dependencies
+        run: flutter pub get
 
-      - name: Configure CocoaPods and Podfile
+      - name: Configure CocoaPods and Inject Frameworks
         run: |
           cd ios
-          # Criamos o Podfile estruturado apontando explicitamente para o projeto Runner
-          echo "platform :ios, '14.0'" > Podfile
-          echo "project 'Runner.xcodeproj'" >> Podfile
-          echo "target 'Runner' do" >> Podfile
-          echo "  use_frameworks!" >> Podfile
-          echo "end" >> Podfile
+          # 1. Deixamos o Flutter gerar o Podfile oficial completo com todos os mapeamentos de plugins
+          flutter build ios --config-only
           
+          # 2. Injetamos cirurgicamente o 'use_frameworks!' e a plataforma 14 no topo do Podfile gerado
+          sed -i '' "1s/^/platform :ios, '14.0'\nuse_frameworks!\n/" Podfile
+          
+          # 3. Limpeza profunda dos caches locais do CocoaPods
+          rm -rf Pods TargetSupportFiles Podfile.lock
           pod cache clean --all
           pod repo update
           pod install --repo-update
