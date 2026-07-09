@@ -37,11 +37,9 @@ jobs:
       - name: Clean and Recreate Android Project with SDK 34
         run: |
           rm -rf android
-          # O segredo está aqui: Forçamos a criação do projeto nativo alinhado com o SDK que o Firebase exige
           flutter create --platforms=android --org com.aistudio .
-          cd android
-          sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' app/build.gradle
-          cd ..
+          # Correção do caminho do build.gradle:
+          sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' android/app/build.gradle
           flutter pub get
           flutter clean
 
@@ -82,7 +80,7 @@ jobs:
           echo "platform :ios, '14.0'" > Podfile
           echo "target 'Runner' do" >> Podfile
           echo "  use_frameworks!" >> Podfile
-          end" >> Podfile
+          echo "end" >> Podfile
           pod repo update
           pod install
 
@@ -106,3 +104,4 @@ jobs:
         with:
           name: uni-eats-ios-simulator
           path: assets/uni_eats_flutter/UniEats_Simulator.ipa
+          
