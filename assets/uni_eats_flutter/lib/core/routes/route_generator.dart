@@ -292,7 +292,7 @@ class _TelaCardapioClienteState extends State<TelaCardapioCliente> with SingleTi
                   itemBuilder: (context, index) {
                     final item = _menuItems[index];
                     return Container(
-                      margin: const EdgeInsets.bottom: 16,
+                      margin: const EdgeInsets.only(bottom: 16),
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: brandSurface,

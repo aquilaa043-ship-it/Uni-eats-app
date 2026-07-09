@@ -193,6 +193,8 @@ class _UniEatsControlHubState extends State<UniEatsControlHub> {
                   backgroundColor: Color(0xFF2E7D32),
                 ),
               );
+            },
+          ),
           // 1. Rastreamento (Acompanhamento do Cliente)
           AcompanhamentoPedidoModule(
             deliveryState: _deliveryState,

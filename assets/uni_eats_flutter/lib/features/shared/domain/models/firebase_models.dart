@@ -182,7 +182,6 @@ class ItemPedidoModel {
 
   factory ItemPedidoModel.fromMap(Map<String, dynamic> map) {
     return ItemPedidoModel(
-      id: map['id'], // Para flexibilidade
       nome: map['nome'] ?? '',
       quantidade: map['quantidade']?.toInt() ?? 0,
       preco: map['preco']?.toDouble() ?? 0.0,

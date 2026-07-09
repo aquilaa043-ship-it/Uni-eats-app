@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../shared/domain/models/firebase_models.dart';
+import 'package:uni_eats/features/shared/domain/models/firebase_models.dart';
 import '../../data/firebase_auth_service.dart';
 import '../../../../core/routes/route_generator.dart';
 
@@ -310,7 +310,7 @@ class _UniEatsAuthScreenState extends State<UniEatsAuthScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: brandGoldOld.withOpacity(0.4), width: 1.2),
+                            side: BorderSide(color: brandGoldOld.withOpacity(0.4), width: 1.2),
                           ),
                         ),
                         onPressed: () => _mostrarSeletorDemo(),

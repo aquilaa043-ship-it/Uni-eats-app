@@ -229,7 +229,7 @@ class FirebaseAuthService {
 
     throw FirebaseAuthException(
       code: e.code,
-      message: messageAmigavel,
+      message: mensagemAmigavel,
     );
   }
 }
