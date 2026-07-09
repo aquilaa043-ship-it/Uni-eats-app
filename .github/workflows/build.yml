@@ -40,11 +40,16 @@ jobs:
           flutter create .
           flutter pub get
 
-      - name: Inject Scriptor Core repositories & SDK 34 into Gradle
+      - name: Fix Android Repositories and SDK 34 (Modern Gradle)
         run: |
           cd android
-          # Força todos os subprojetos (plugins) a usarem os repositórios da Google/Maven e o SDK 34
-          echo -e "\nallprojects {\n    repositories {\n        google()\n        mavenCentral()\n    }\n}\n\nsubprojects {\n    afterEvaluate { project ->\n        if (project.hasProperty('android')) {\n            project.android {\n                compileSdkVersion 34\n            }\n        }\n    }\n}" >> build.gradle
+          
+          # 1. Alinha o gerenciador de dependências moderno (settings.gradle) para buscar no Google e MavenCentral antes de tudo
+          echo -e "pluginManagement {\n    repositories {\n        google()\n        mavenCentral()\n        gradlePluginPortal()\n    }\n}\ndependencyResolutionManagement {\n    repositoriesMode.set(RepositoriesMode.PRESERVE_EXISTING)\n    repositories {\n        google()\n        mavenCentral()\n    }\n}\n$(cat settings.gradle)" > settings.gradle
+          
+          # 2. Força a compilação de todos os subprojetos (plugins) com o SDK 34
+          echo -e "\nsubprojects {\n    afterEvaluate { project ->\n        if (project.hasProperty('android')) {\n            project.android {\n                compileSdkVersion 34\n            }\n        }\n    }\n}" >> build.gradle
+          
           cd ..
 
       - name: Build Android via Flutter CLI (Debug Mode)
@@ -79,16 +84,20 @@ jobs:
           flutter create .
           flutter pub get
 
-      - name: Configure CocoaPods via Flutter CLI
+      - name: Configure CocoaPods Target and Frameworks
         run: |
           cd ios
-          # 1. Deixa o Flutter criar o Podfile original estável
+          # 1. Deixa o Flutter criar o Podfile padrão estruturado
           flutter build ios --config-only --simulator
           
-          # 2. Injeta as dependências estáticas do Firebase na primeira linha sem quebrar o arquivo
-          echo -e "platform :ios, '14.0'\nuse_frameworks! :linkage => :static\n\n$(cat Podfile)" > Podfile
+          # 2. Descomenta e atualiza a linha da plataforma para iOS 14.0 obrigatoriamente
+          sed -i '' "s/# platform :ios, '13.0'/platform :ios, '14.0'/g" Podfile
+          sed -i '' "s/platform :ios, '13.0'/platform :ios, '14.0'/g" Podfile
           
-          # 3. Limpeza profunda e instalação
+          # 3. Injeta o suporte a frameworks estáticos exigido pelo Firebase e Google Maps no topo do arquivo
+          echo -e "use_frameworks! :linkage => :static\n$(cat Podfile)" > Podfile
+          
+          # 4. Limpeza e instalação forçando o mapeamento correto do ecossistema Apple
           rm -rf Pods Podfile.lock
           pod repo update
           pod install
